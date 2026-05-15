@@ -128,6 +128,70 @@ let { Op } = require("sequelize");
  * @prop {Object} Extensions Additional information about this bus
  */
 
+// BUS CANCELLATIONS
+
+/**
+ * @typedef {Object} AffectedJourneyCall Stops that are applicable to this journey
+ * @prop {String} StopPointRef The ATCO Code of this stop
+ * @prop {String} StopPointName The Common Name of this stop
+ * @prop {String} Order The order this stop comes in the journey
+ * @prop {('stop'|'notStopping')} CallCondition? What should happen at this stop
+ * @prop {String} AimedArrivalTime? ISO Timestamp of when the bus should arrive at this stop.
+ * @prop {String} AimedDepartureTime? ISO Timestamp of when the bus should depart this stop
+ */
+
+/**
+ * @typedef {Object} AffectedVehicleJourney The affected vehicle journeys for this situation
+ * @prop {String} DatedVehicleJourneyRef The vehicle journey ID (for the applicable day/s) that is affected
+ * @prop {Object} Operator This journey's operator details
+ * @prop {String} Operator.OperatorRef The NOC of the affected operator
+ * @prop {String} Operator.OperatorName The name of the affected operator
+ * @prop {String} LineRef The ID of the bus lines affected
+ * @prop {String} PublishedLineName The actual line name affected
+ * @prop {String} DirectionRef The direction in which journeys will be affected
+ * @prop {Object} Route? Likely empty
+ * @prop {String} OriginAimedDepartureTime The ISO timestamp of when this journey should leave its origin
+ * @prop {Object} Calls Amended journey calls container
+ * @prop {AffectedJourneyCall[]|AffectedJourneyCall} Call A list (or single object) of where the affected journey will call
+ */
+
+/**
+ * @typedef {Object} SituationConsequence Details of what disruptionis happening
+ * @prop {String} Condition What is happening to the service
+ * @prop {String} Severity How bad is it really?
+ */
+
+/**
+ * @typedef {Object} CancellationObject Data containing a cancellation situation
+ * @prop {String} CreationTime The ISO timestamp when this situation was created
+ * @prop {String} ParticipantRef A reference to the affected participant
+ * @prop {String} Version
+ * @prop {Object} Source Cancellation source info
+ * @prop {String} Source.SourceType Where this situation came from
+ * @prop {('open'|'closed')} Progress
+ * @prop {Object} ValidityPeriod Details on when this situation is valid
+ * @prop {String} ValidityPeriod.StartTime ISO Timestamp When this disruption begins
+ * @prop {String} ValidityPeriod.EndTime ISO Timestamp When this disruption ends
+ * @prop {String} MiscellaneousReason
+ * @prop {Objects} Affects The Affected things...
+ * @prop {AffectedVehicleJourney[]|AffectedVehicleJourney} Affects.VehicleJourneys The affected journeys
+ * @prop {Object} Consequences What happens as a result of this
+ * @prop {SituationConsequence[]|SituationConsequence} Consequences.Consequence Array or object (usually object) containing consequences
+ */
+
+/**
+ * @typedef {Object} BusCancellationDataset Data containing cancellation situations
+ * @prop {Object} Siri The base of this request
+ * @prop {Object} Siri.ServiceDelivery The response of this cancellation request
+ * @prop {String} Siri.ServiceDelivery.ResponseTimestamp The response time of this dataset request
+ * @prop {String} Siri.ServiceDelivery.ProducerRef Which organisation produced this dataset
+ * @prop {String} Siri.ServiceDelivery.ResponseMessageIdentifier The UUID of this response
+ * @prop {Object} Siri.ServiceDelivery.SituationExchangeDelivery The actual situation object
+ * @prop {String} Siri.ServiceDelivery.SituationExchangeDelivery.ResponseTimestamp The response time of this dataset request
+ * @prop {Object} Siri.ServiceDelivery.SituationExchangeDelivery.Situations Situations container object
+ * @prop {CancellationObject[]|CancellationObject} Siri.ServiceDelivery.SituationExchangeDelivery.Situations.PtSituationElement A list (or single object) of situation objects
+ */
+
 /**
  * Provides the base client infrastructure for using the Bus Open Data Service.
  */
@@ -314,6 +378,31 @@ class BODSClient {
         // Fetch it with the data
         return new Promise((resolve, reject) => {
             fetch("https://data.bus-data.dft.gov.uk/api/v1/datafeed" + queryString)
+                .then((res) => {
+                    if (res.status == 200) {
+                        res.text().then(async (resultXml) => {
+                            var parser = new xml2js.Parser({ trim: true, explicitArray: false });
+                            let result = await parser.parseStringPromise(resultXml)
+                            resolve(result)
+                        })
+                    }
+                })
+                .catch(() => {
+                    reject("Error while connecting to API - Check your connection?")
+                })
+        })
+
+    }
+
+    /**
+     * Fetches the Cancellation datafeed and converts results to JSON
+     * @returns {BusCancellationDataset} Dataset containing bus cancellation data
+     */
+    fetchCancellationDatafeed() {
+        let queryString = "?api_key=" + this.#apikey;
+        // Fetch it with the data
+        return new Promise((resolve, reject) => {
+            fetch("https://data.bus-data.dft.gov.uk/api/v1/siri-sx/cancellations" + queryString)
                 .then((res) => {
                     if (res.status == 200) {
                         res.text().then(async (resultXml) => {

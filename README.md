@@ -139,7 +139,8 @@ let stops = await manager.Trips.findAll({
 |                       | Full Support | Part Support | No Support Yet |
 |-----------------------|--------------|--------------|----------------|
 | Timetable Dataset API | ✅           |              |                |
-| Bus Location Data     | ✅            |              |                |
+| Bus Location Data     | ✅           |              |                |
+| Cancellation Data     | ✅           |              |                |
 | Fares Dataset API     |              |              | ✅              |
 
 The Timetable Dataset API is supported, however the physical data in each dataset has not been implemented. The URL property is provided in the meantime.
